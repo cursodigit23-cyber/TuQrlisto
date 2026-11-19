@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generador de QR · Google Maps y WhatsApp</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f1f5f9;color:#0f172a;min-height:100vh;display:flex;justify-content:center;padding:20px}
+  .card{background:#fff;border-radius:20px;box-shadow:0 10px 30px rgba(15,23,42,.1);width:100%;max-width:460px;padding:24px;height:fit-content}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  .sub{margin:0 0 18px;color:#64748b;font-size:.9rem}
+  .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#f1f5f9;padding:5px;border-radius:12px;margin-bottom:16px}
+  .tabs button{border:0;background:transparent;padding:10px 4px;border-radius:9px;font-weight:600;font-size:.85rem;color:#475569;cursor:pointer}
+  .tabs button.active{background:#fff;color:#0f172a;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  label{display:block;font-size:.8rem;font-weight:600;margin:12px 0 5px;color:#334155}
+  input[type=text],textarea{width:100%;padding:11px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font:inherit;font-size:.95rem}
+  input:focus,textarea:focus{outline:none;border-color:#2563eb}
+  textarea{resize:vertical;min-height:64px}
+  .hint{font-size:.76rem;color:#64748b;margin-top:5px}
+  .radios{display:flex;gap:14px;flex-wrap:wrap;font-size:.88rem;margin-top:4px}
+  .radios label{display:flex;align-items:center;gap:6px;margin:0;font-weight:500}
+  .hidden{display:none}
+  .row{display:flex;align-items:center;gap:10px;margin-top:14px}
+  .row input[type=color]{width:42px;height:32px;border:1px solid #cbd5e1;border-radius:8px;padding:2px;background:#fff}
+  .preview{margin:20px 0 10px;text-align:center}
+  canvas{width:100%;max-width:280px;aspect-ratio:1;border:1px solid #e2e8f0;border-radius:12px;background:#fff;image-rendering:pixelated}
+  .empty{display:flex;align-items:center;justify-content:center;width:100%;max-width:280px;aspect-ratio:1;margin:auto;border:2px dashed #cbd5e1;border-radius:12px;color:#94a3b8;font-size:.9rem;padding:20px}
+  .link{font-size:.75rem;color:#64748b;word-break:break-all;text-align:center;margin-bottom:12px}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btns button{padding:12px;border-radius:10px;border:0;font-weight:600;font-size:.9rem;cursor:pointer;background:#2563eb;color:#fff}
+  .btns button.sec{background:#e2e8f0;color:#0f172a}
+  .btns button:disabled{opacity:.4;cursor:not-allowed}
+  .btns .full{grid-column:1/-1}
+  #toast{text-align:center;font-size:.85rem;color:#16a34a;min-height:1.2em;margin-top:10px;font-weight:600}
+  footer{text-align:center;font-size:.8rem;color:#64748b;margin-top:14px}
+  footer a{color:#2563eb;font-weight:600;text-decoration:none}
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>Generador de QR</h1>
+  <p class="sub">Google Maps, WhatsApp o cualquier enlace. Descargalo o copialo.</p>
+
+  <div class="tabs">
+    <button class="active" data-mode="maps">Google Maps</button>
+    <button data-mode="wa">WhatsApp</button>
+    <button data-mode="url">Otro enlace</button>
+  </div>
+
+  <section id="f-maps">
+    <label for="placeId">Place ID (o pegá un enlace de Maps)</label>
+    <input type="text" id="placeId" placeholder="ChIJ..." autocomplete="off">
+    <label>El QR abre…</label>
+    <div class="radios">
+      <label><input type="radio" name="kind" value="place" checked> La ficha en Maps</label>
+      <label><input type="radio" name="kind" value="review"> Dejar reseña</label>
+    </div>
+    <p class="hint">Si pegás un enlace completo, se usa tal cual.</p>
+  </section>
+
+  <section id="f-wa" class="hidden">
+    <label for="waNum">Número con código de país (o pegá un enlace wa.me)</label>
+    <input type="text" id="waNum" placeholder="5491122334455" inputmode="tel" autocomplete="off">
+    <p class="hint">Sin +, espacios ni guiones. Argentina móvil: 549 + código de área + número.</p>
+    <label for="waMsg">Mensaje inicial (opcional)</label>
+    <textarea id="waMsg" placeholder="Hola, quisiera más información..."></textarea>
+  </section>
+
+  <section id="f-url" class="hidden">
+    <label for="anyUrl">Enlace</label>
+    <input type="text" id="anyUrl" placeholder="https://..." autocomplete="off">
+  </section>
+
+  <div class="row">
+    <label for="qrColor" style="margin:0">Color del QR</label>
+    <input type="color" id="qrColor" value="#000000">
+  </div>
+
+  <div class="preview">
+    <div id="empty" class="empty">Completá el campo para ver tu QR</div>
+    <canvas id="cv" class="hidden"></canvas>
+  </div>
+  <div class="link" id="linkTxt"></div>
+
+  <div class="btns">
+    <button id="dlPng" disabled>Descargar PNG</button>
+    <button id="dlJpg" disabled>Descargar JPG</button>
+    <button id="copyImg" class="sec" disabled>Copiar QR</button>
+    <button id="copyLink" class="sec" disabled>Copiar enlace</button>
+  </div>
+  <div id="toast"></div>
+
+  <footer>Hecho por <a href="https://www.instagram.com/alanmktd" target="_blank" rel="noopener">@alanmktd</a></footer>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+let mode = 'maps', current = '';
+
+function getLink() {
+  if (mode === 'maps') {
+    const v = $('placeId').value.trim();
+    if (!v) return '';
+    if (/^https?:\/\//i.test(v)) return v;
+    const id = v.replace(/^place_id:/i, '').trim();
+    const kind = document.querySelector('input[name=kind]:checked').value;
+    return kind === 'review'
+      ? 'https://search.google.com/local/writereview?placeid=' + encodeURIComponent(id)
+      : 'https://www.google.com/maps/place/?q=place_id:' + encodeURIComponent(id);
+  }
+  if (mode === 'wa') {
+    const v = $('waNum').value.trim();
+    if (/^https?:\/\//i.test(v)) return v;
+    const digits = v.replace(/\D/g, '');
+    if (digits.length < 8) return '';
+    const msg = $('waMsg').value.trim();
+    return 'https://wa.me/' + digits + (msg ? '?text=' + encodeURIComponent(msg) : '');
+  }
+  let v = $('anyUrl').value.trim();
+  if (!v) return '';
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) v = 'https://' + v;
+  return v;
+}
+
+function setButtons(on) {
+  ['dlPng', 'dlJpg', 'copyImg', 'copyLink'].forEach(id => $(id).disabled = !on);
+}
+
+function render() {
+  current = getLink();
+  if (!current) {
+    cv.classList.add('hidden'); $('empty').classList.remove('hidden');
+    $('linkTxt').textContent = ''; setButtons(false); return;
+  }
+  try {
+    const qr = qrcode(0, 'M');
+    qr.addData(current); qr.make();
+    const n = qr.getModuleCount(), q = 4;
+    const cell = Math.ceil(1024 / (n + q * 2)), s = cell * (n + q * 2);
+    cv.width = cv.height = s;
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = $('qrColor').value;
+    for (let r = 0; r < n; r++)
+      for (let c = 0; c < n; c++)
+        if (qr.isDark(r, c)) ctx.fillRect((c + q) * cell, (r + q) * cell, cell, cell);
+    cv.classList.remove('hidden'); $('empty').classList.add('hidden');
+    $('linkTxt').textContent = current; setButtons(true);
+  } catch (e) {
+    cv.classList.add('hidden'); $('empty').classList.remove('hidden');
+    $('empty').textContent = 'El enlace es demasiado largo para un QR';
+    setButtons(false);
+  }
+}
+
+function toast(msg, ok = true) {
+  const t = $('toast'); t.textContent = msg; t.style.color = ok ? '#16a34a' : '#dc2626';
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.textContent = '', 2500);
+}
+
+function fileName() {
+  return 'qr-' + ({ maps: 'google-maps', wa: 'whatsapp', url: 'enlace' })[mode];
+}
+
+function download(type, ext) {
+  cv.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName() + '.' + ext;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('Descargado como ' + ext.toUpperCase());
+  }, type, 0.95);
+}
+
+$('dlPng').onclick = () => download('image/png', 'png');
+$('dlJpg').onclick = () => download('image/jpeg', 'jpg');
+
+$('copyImg').onclick = () => {
+  cv.toBlob(async blob => {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      toast('QR copiado al portapapeles');
+    } catch (e) {
+      toast('Tu navegador no permite copiar imágenes. Usá Descargar.', false);
+    }
+  }, 'image/png');
+};
+
+$('copyLink').onclick = async () => {
+  try { await navigator.clipboard.writeText(current); toast('Enlace copiado'); }
+  catch (e) { toast('No se pudo copiar el enlace', false); }
+};
+
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  mode = b.dataset.mode;
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+  ['maps', 'wa', 'url'].forEach(m => $('f-' + m).classList.toggle('hidden', m !== mode));
+  $('empty').textContent = 'Completá el campo para ver tu QR';
+  render();
+});
+
+['placeId', 'waNum', 'waMsg', 'anyUrl', 'qrColor'].forEach(id => $(id).addEventListener('input', () => {
+  $('empty').textContent = 'Completá el campo para ver tu QR'; render();
+}));
+document.querySelectorAll('input[name=kind]').forEach(r => r.addEventListener('change', render));
+</script>
+</body>
+</html>
